@@ -1,0 +1,49 @@
+name: Daily tenders sync
+
+on:
+  schedule:
+    - cron: "20 10 * * *"
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Fecha inicio (YYYY-MM-DD, zona Chile)"
+        required: false
+      end_date:
+        description: "Fecha fin (YYYY-MM-DD, zona Chile)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      CHILECOMPRA_TICKET: ${{ secrets.CHILECOMPRA_TICKET }}
+      CHILECOMPRA_START_DATE: ${{ github.event.inputs.start_date || vars.CHILECOMPRA_START_DATE }}
+      CHILECOMPRA_END_DATE: ${{ github.event.inputs.end_date || vars.CHILECOMPRA_END_DATE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate tenders JSON
+        run: python scripts/update_tenders.py
+
+      - name: Commit and push generated files (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- docs/data/tenders.json docs/data/meta.json; then
+            echo "No changes detected; skipping commit."
+            exit 0
+          fi
+
+          git add docs/data/tenders.json docs/data/meta.json
+          git commit -m "chore(data): update tenders dataset"
+          git push
