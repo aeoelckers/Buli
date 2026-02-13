@@ -3,6 +3,8 @@ const MARKETPLACE_DETAIL_URL = 'https://www.mercadopublico.cl/Procurement/Module
 const state = {
   tenders: [],
   meta: null,
+  activeTender: null,
+  lastTriggerButton: null,
 };
 
 const elements = {
@@ -16,7 +18,29 @@ const elements = {
   resultsCount: document.querySelector('#resultsCount'),
   updatedAt: document.querySelector('#updatedAt'),
   emptyStateTemplate: document.querySelector('#emptyState'),
+  modalBackdrop: document.querySelector('#tenderModalBackdrop'),
+  modalTitle: document.querySelector('#tenderModalTitle'),
+  modalContent: document.querySelector('#tenderModalContent'),
+  modalExternalLink: document.querySelector('#modalExternalLink'),
+  modalCloseButton: document.querySelector('#modalCloseButton'),
 };
+
+const BASE_FIELDS = [
+  ['tender_id', 'ID'],
+  ['name', 'Nombre'],
+  ['buyer', 'Comprador'],
+  ['region', 'Región'],
+  ['status', 'Estado'],
+  ['published_at', 'Publicación'],
+  ['close_at', 'Cierre'],
+];
+
+const OPTIONAL_FIELDS = [
+  ['budget_amount', 'Presupuesto'],
+  ['currency', 'Moneda'],
+  ['description', 'Descripción'],
+  ['procurement_type', 'Tipo de compra'],
+];
 
 function formatDisplayDate(isoString) {
   if (!isoString) return '—';
@@ -29,8 +53,11 @@ function formatDisplayDate(isoString) {
 }
 
 function detailUrlFor(tender) {
-  if (tender.url && tender.url.trim()) return tender.url;
-  return `${MARKETPLACE_DETAIL_URL}${encodeURIComponent(tender.tender_id)}`;
+  if (tender.url && String(tender.url).trim()) return String(tender.url).trim();
+  if (tender.tender_id && String(tender.tender_id).trim()) {
+    return `${MARKETPLACE_DETAIL_URL}${encodeURIComponent(String(tender.tender_id).trim())}`;
+  }
+  return null;
 }
 
 function uniqueSorted(values) {
@@ -90,6 +117,138 @@ function applyFilters(tenders, filters) {
   });
 }
 
+function createInfoRow(label, value) {
+  const row = document.createElement('div');
+  row.className = 'modal-row';
+
+  const key = document.createElement('span');
+  key.className = 'modal-row-key';
+  key.textContent = label;
+
+  const val = document.createElement('span');
+  val.className = 'modal-row-value';
+  val.textContent = value ?? '—';
+
+  row.append(key, val);
+  return row;
+}
+
+function getModalRows(tender) {
+  const rows = [];
+  BASE_FIELDS.forEach(([field, label]) => {
+    let value = tender[field];
+    if (field === 'published_at' || field === 'close_at') {
+      value = formatDisplayDate(value);
+    }
+    if (field === 'region') {
+      value = value || 'No informada';
+    }
+    rows.push([label, value || '—']);
+  });
+
+  OPTIONAL_FIELDS.forEach(([field, label]) => {
+    const value = tender[field];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      rows.push([label, String(value)]);
+    }
+  });
+
+  const knownFields = new Set([...BASE_FIELDS, ...OPTIONAL_FIELDS, ['url']].map(([f]) => f));
+  Object.entries(tender).forEach(([key, value]) => {
+    if (knownFields.has(key)) return;
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    rows.push([key.replaceAll('_', ' '), String(value)]);
+  });
+
+  return rows;
+}
+
+function openTenderModal(tender, triggerButton) {
+  state.activeTender = tender;
+  state.lastTriggerButton = triggerButton || null;
+
+  elements.modalTitle.textContent = tender.name || 'Detalle de licitación';
+  elements.modalContent.replaceChildren();
+
+  const rows = getModalRows(tender);
+  rows.forEach(([label, value]) => {
+    elements.modalContent.appendChild(createInfoRow(label, value));
+  });
+
+  const externalUrl = detailUrlFor(tender);
+  if (externalUrl) {
+    elements.modalExternalLink.href = externalUrl;
+    elements.modalExternalLink.hidden = false;
+  } else {
+    elements.modalExternalLink.hidden = true;
+    elements.modalExternalLink.removeAttribute('href');
+  }
+
+  document.body.classList.add('modal-open');
+  elements.modalBackdrop.hidden = false;
+  elements.modalCloseButton.focus();
+}
+
+function closeTenderModal() {
+  if (elements.modalBackdrop.hidden) return;
+
+  elements.modalBackdrop.hidden = true;
+  document.body.classList.remove('modal-open');
+  state.activeTender = null;
+
+  if (state.lastTriggerButton) {
+    state.lastTriggerButton.focus();
+  }
+  state.lastTriggerButton = null;
+}
+
+function renderCard(tender) {
+  const card = document.createElement('article');
+  card.className = 'card';
+
+  const title = document.createElement('h3');
+  title.textContent = tender.name;
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  const fields = [
+    ['ID', tender.tender_id],
+    ['Comprador', tender.buyer],
+    ['Región', tender.region || 'No informada'],
+    ['Publicación', formatDisplayDate(tender.published_at)],
+    ['Cierre', formatDisplayDate(tender.close_at)],
+  ];
+
+  fields.forEach(([label, value]) => {
+    const line = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.textContent = `${label}: `;
+    line.appendChild(strong);
+    line.append(String(value || '—'));
+    meta.appendChild(line);
+  });
+
+  const badges = document.createElement('div');
+  badges.className = 'badges';
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = tender.status;
+  badges.appendChild(badge);
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const detailButton = document.createElement('button');
+  detailButton.className = 'btn';
+  detailButton.type = 'button';
+  detailButton.textContent = 'Ver detalle';
+  detailButton.addEventListener('click', () => openTenderModal(tender, detailButton));
+  actions.appendChild(detailButton);
+
+  card.append(title, meta, badges, actions);
+  return card;
+}
+
 function renderCards(tenders) {
   elements.results.innerHTML = '';
   if (!tenders.length) {
@@ -98,29 +257,9 @@ function renderCards(tenders) {
   }
 
   const fragment = document.createDocumentFragment();
-
   tenders.forEach((tender) => {
-    const card = document.createElement('article');
-    card.className = 'card';
-    card.innerHTML = `
-      <h3>${tender.name}</h3>
-      <div class="meta">
-        <div><strong>ID:</strong> ${tender.tender_id}</div>
-        <div><strong>Comprador:</strong> ${tender.buyer}</div>
-        <div><strong>Región:</strong> ${tender.region || 'No informada'}</div>
-        <div><strong>Publicación:</strong> ${formatDisplayDate(tender.published_at)}</div>
-        <div><strong>Cierre:</strong> ${formatDisplayDate(tender.close_at)}</div>
-      </div>
-      <div class="badges">
-        <span class="badge">${tender.status}</span>
-      </div>
-      <div class="actions">
-        <a class="btn" href="${detailUrlFor(tender)}" target="_blank" rel="noopener noreferrer">Ver detalle</a>
-      </div>
-    `;
-    fragment.appendChild(card);
+    fragment.appendChild(renderCard(tender));
   });
-
   elements.results.appendChild(fragment);
 }
 
@@ -152,6 +291,21 @@ function setupFilters() {
   ].forEach((control) => control.addEventListener('input', refreshView));
 }
 
+function setupModal() {
+  elements.modalCloseButton.addEventListener('click', closeTenderModal);
+  elements.modalBackdrop.addEventListener('click', (event) => {
+    if (event.target === elements.modalBackdrop) {
+      closeTenderModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !elements.modalBackdrop.hidden) {
+      closeTenderModal();
+    }
+  });
+}
+
 async function fetchJson(url, fallback) {
   try {
     const response = await fetch(url);
@@ -167,6 +321,7 @@ async function init() {
   state.tenders = await fetchJson('./data/tenders.json', []);
   state.meta = await fetchJson('./data/meta.json', null);
   setupFilters();
+  setupModal();
   refreshView();
 }
 

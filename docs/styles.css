@@ -19,6 +19,10 @@ body {
   color: var(--text);
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .page-header,
 .filters,
 main {
@@ -142,6 +146,13 @@ main {
   font-weight: 600;
   border-radius: 10px;
   padding: 0.5rem 0.85rem;
+  border: 0;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: #dce6fb;
+  color: #173366;
 }
 
 .empty-state {
@@ -152,8 +163,83 @@ main {
   color: var(--muted);
 }
 
+
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 16, 33, 0.66);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 999;
+}
+
+.modal {
+  width: min(760px, 100%);
+  max-height: 80vh;
+  background: var(--card);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 1rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-content {
+  padding: 0.85rem 1rem;
+  overflow: auto;
+}
+
+.modal-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) 1fr;
+  gap: 0.7rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #edf1f9;
+}
+
+.modal-row:last-child {
+  border-bottom: 0;
+}
+
+.modal-row-key {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.modal-row-value {
+  word-break: break-word;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
 @media (max-width: 800px) {
   .search-group {
     grid-column: span 1;
+  }
+
+  .modal-row {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
   }
 }
