@@ -1,0 +1,32 @@
+[
+  {
+    "tender_id": "1234-56-LR26",
+    "name": "Servicio de mantención de áreas verdes comunales",
+    "buyer": "Municipalidad de Santiago",
+    "status": "Publicada",
+    "published_at": "2026-02-12T10:30:00-03:00",
+    "close_at": "2026-02-20T15:00:00-03:00",
+    "region": "Región Metropolitana",
+    "url": "https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?qs=1234-56-LR26"
+  },
+  {
+    "tender_id": "7890-11-LE26",
+    "name": "Adquisición de equipos computacionales",
+    "buyer": "Servicio de Salud Valparaíso",
+    "status": "Cerrada",
+    "published_at": "2026-02-11T09:00:00-03:00",
+    "close_at": "2026-02-13T17:45:00-03:00",
+    "region": "Valparaíso",
+    "url": ""
+  },
+  {
+    "tender_id": "5555-22-LQ26",
+    "name": "Obras de mejoramiento vial",
+    "buyer": "Gobierno Regional del Biobío",
+    "status": "Publicada",
+    "published_at": "2026-02-10T08:15:00-03:00",
+    "close_at": "2026-02-24T14:30:00-03:00",
+    "region": "Biobío",
+    "url": null
+  }
+]

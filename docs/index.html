@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Buli · Licitaciones</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>Licitaciones públicas</h1>
+      <p class="subtitle">Explora y filtra licitaciones de Mercado Público</p>
+      <div class="stats">
+        <span id="resultsCount">0 licitaciones encontradas</span>
+        <span id="updatedAt">Actualizado: --</span>
+      </div>
+    </header>
+
+    <section class="filters" aria-label="Filtros de licitaciones">
+      <div class="filter-group">
+        <label for="statusFilter">Estado</label>
+        <select id="statusFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="regionFilter">Región</label>
+        <select id="regionFilter">
+          <option value="">Todas</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="buyerFilter">Comprador</label>
+        <select id="buyerFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="fromDate">Cierre desde</label>
+        <input id="fromDate" type="date" />
+      </div>
+
+      <div class="filter-group">
+        <label for="toDate">Cierre hasta</label>
+        <input id="toDate" type="date" />
+      </div>
+
+      <div class="filter-group search-group">
+        <label for="searchInput">Buscar palabras</label>
+        <input id="searchInput" type="search" placeholder="ID, nombre, comprador, región..." />
+      </div>
+    </section>
+
+    <main>
+      <section id="results" class="cards" aria-live="polite"></section>
+    </main>
+
+    <template id="emptyState">
+      <div class="empty-state">No hay licitaciones que coincidan con los filtros.</div>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
