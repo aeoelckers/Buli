@@ -1,4 +1,6 @@
 {
   "timestamp": "2026-02-13T09:00:00-03:00",
-  "total": 3
+  "total": 3,
+  "source": "seed",
+  "synced_at": null
 }

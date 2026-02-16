@@ -279,6 +279,28 @@ function setSyncStatus(message) {
   elements.syncStatus.textContent = message;
 }
 
+
+function getSyncStatusMessage(meta) {
+  if (!meta) return 'Sin metadatos de sincronización disponibles.';
+
+  if (meta.source && meta.source !== 'mercadopublico_api') {
+    return 'Mostrando datos de ejemplo. Configura CHILECOMPRA_TICKET y ejecuta el workflow para conectar con Mercado Público.';
+  }
+
+  const timestamp = meta.timestamp;
+  if (!timestamp) return 'Sin timestamp de sincronización.';
+
+  const syncedAt = new Date(timestamp);
+  if (Number.isNaN(syncedAt.getTime())) return 'Timestamp de sincronización inválido.';
+
+  const ageMs = Date.now() - syncedAt.getTime();
+  if (ageMs > 6 * 60 * 60 * 1000) {
+    return `Datos potencialmente desactualizados (última sincronización: ${formatDisplayDate(timestamp)}).`;
+  }
+
+  return `Última sincronización: ${formatDisplayDate(timestamp)}`;
+}
+
 function setSyncInProgress(isSyncing) {
   state.isSyncing = isSyncing;
   elements.syncNowButton.disabled = isSyncing;
@@ -354,14 +376,17 @@ async function syncData(trigger = 'manual') {
     }
 
     refreshView();
-    const updated = state.meta?.timestamp ? formatDisplayDate(state.meta.timestamp) : 'sin timestamp';
-    setSyncStatus(`Última sincronización: ${updated}`);
+    setSyncStatus(getSyncStatusMessage(state.meta));
   } catch (error) {
     console.warn('No se pudieron sincronizar los datos:', error);
     setSyncStatus('No se pudo sincronizar. Reintenta en unos minutos.');
   } finally {
     setSyncInProgress(false);
   }
+
+  state.syncTimerId = window.setInterval(() => {
+    syncData('auto');
+  }, AUTO_REFRESH_MS);
 }
 
 function setupSyncControls() {

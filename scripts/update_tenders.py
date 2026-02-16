@@ -197,7 +197,7 @@ def main() -> int:
     OUTPUT_DATA.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_DATA.write_text(json.dumps(tenders, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     OUTPUT_META.write_text(
-        json.dumps({"timestamp": now_iso, "total": len(tenders)}, ensure_ascii=False, indent=2) + "\n",
+        json.dumps({"timestamp": now_iso, "total": len(tenders), "source": "mercadopublico_api", "synced_at": now_iso}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
