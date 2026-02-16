@@ -1,4 +1,5 @@
 const MARKETPLACE_DETAIL_URL = 'https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?qs=';
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 const state = {
   tenders: [],
@@ -14,6 +15,8 @@ const elements = {
   fromDate: document.querySelector('#fromDate'),
   toDate: document.querySelector('#toDate'),
   searchInput: document.querySelector('#searchInput'),
+  refreshDataButton: document.querySelector('#refreshDataButton'),
+  refreshStatus: document.querySelector('#refreshStatus'),
   results: document.querySelector('#results'),
   resultsCount: document.querySelector('#resultsCount'),
   updatedAt: document.querySelector('#updatedAt'),
@@ -170,8 +173,7 @@ function openTenderModal(tender, triggerButton) {
   elements.modalTitle.textContent = tender.name || 'Detalle de licitación';
   elements.modalContent.replaceChildren();
 
-  const rows = getModalRows(tender);
-  rows.forEach(([label, value]) => {
+  getModalRows(tender).forEach(([label, value]) => {
     elements.modalContent.appendChild(createInfoRow(label, value));
   });
 
@@ -306,9 +308,14 @@ function setupModal() {
   });
 }
 
+function withNoCache(url) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${Date.now()}`;
+}
+
 async function fetchJson(url, fallback) {
   try {
-    const response = await fetch(url);
+    const response = await fetch(withNoCache(url), { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
@@ -317,12 +324,57 @@ async function fetchJson(url, fallback) {
   }
 }
 
-async function init() {
-  state.tenders = await fetchJson('./data/tenders.json', []);
-  state.meta = await fetchJson('./data/meta.json', null);
+function setRefreshStatus(message, isError = false) {
+  elements.refreshStatus.textContent = message;
+  elements.refreshStatus.classList.toggle('refresh-status-error', isError);
+}
+
+async function loadDataAndRender({ silent = false } = {}) {
+  if (!silent) {
+    setRefreshStatus('Actualizando datos...');
+    elements.refreshDataButton.disabled = true;
+  }
+
+  const [tenders, meta] = await Promise.all([
+    fetchJson('./data/tenders.json', state.tenders),
+    fetchJson('./data/meta.json', state.meta),
+  ]);
+
+  const fetchFailed = !Array.isArray(tenders);
+  if (!fetchFailed) {
+    state.tenders = tenders;
+  }
+  state.meta = meta;
+
   setupFilters();
-  setupModal();
   refreshView();
+
+  if (!silent) {
+    const updated = state.meta?.timestamp ? formatDisplayDate(state.meta.timestamp) : 'desconocido';
+    setRefreshStatus(`Datos recargados. Última actualización del dataset: ${updated}.`, false);
+    elements.refreshDataButton.disabled = false;
+    return;
+  }
+
+  if (fetchFailed) {
+    setRefreshStatus('No se pudo refrescar datos automáticamente. Reintenta manualmente.', true);
+  }
+}
+
+function setupLiveRefresh() {
+  elements.refreshDataButton.addEventListener('click', async () => {
+    await loadDataAndRender({ silent: false });
+  });
+
+  window.setInterval(async () => {
+    await loadDataAndRender({ silent: true });
+  }, AUTO_REFRESH_MS);
+}
+
+async function init() {
+  setupModal();
+  setupLiveRefresh();
+  await loadDataAndRender({ silent: true });
 }
 
 init();
