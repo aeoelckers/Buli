@@ -383,6 +383,10 @@ async function syncData(trigger = 'manual') {
   } finally {
     setSyncInProgress(false);
   }
+
+  state.syncTimerId = window.setInterval(() => {
+    syncData('auto');
+  }, AUTO_REFRESH_MS);
 }
 
 function setupSyncControls() {
