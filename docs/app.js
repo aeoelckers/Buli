@@ -1,10 +1,13 @@
 const MARKETPLACE_DETAIL_URL = 'https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?qs=';
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 const state = {
   tenders: [],
   meta: null,
   activeTender: null,
   lastTriggerButton: null,
+  isSyncing: false,
+  syncTimerId: null,
 };
 
 const elements = {
@@ -17,6 +20,8 @@ const elements = {
   results: document.querySelector('#results'),
   resultsCount: document.querySelector('#resultsCount'),
   updatedAt: document.querySelector('#updatedAt'),
+  syncStatus: document.querySelector('#syncStatus'),
+  syncNowButton: document.querySelector('#syncNowButton'),
   emptyStateTemplate: document.querySelector('#emptyState'),
   modalBackdrop: document.querySelector('#tenderModalBackdrop'),
   modalTitle: document.querySelector('#tenderModalTitle'),
@@ -270,6 +275,16 @@ function updateStats(count) {
   elements.updatedAt.textContent = `Actualizado: ${display}`;
 }
 
+function setSyncStatus(message) {
+  elements.syncStatus.textContent = message;
+}
+
+function setSyncInProgress(isSyncing) {
+  state.isSyncing = isSyncing;
+  elements.syncNowButton.disabled = isSyncing;
+  elements.syncNowButton.textContent = isSyncing ? 'Actualizando…' : 'Actualizar datos ahora';
+}
+
 function refreshView() {
   const filtered = applyFilters(state.tenders, readFilters());
   renderCards(filtered);
@@ -306,23 +321,69 @@ function setupModal() {
   });
 }
 
-async function fetchJson(url, fallback) {
+async function fetchJson(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+}
+
+async function syncData(trigger = 'manual') {
+  if (state.isSyncing) return;
+
+  const labels = {
+    initial: 'Carga inicial',
+    auto: 'Actualización automática',
+    manual: 'Actualización manual',
+  };
+
+  setSyncInProgress(true);
+  setSyncStatus(`${labels[trigger] || 'Sincronización'} en progreso…`);
+
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const [tenders, meta] = await Promise.all([
+      fetchJson('./data/tenders.json'),
+      fetchJson('./data/meta.json'),
+    ]);
+
+    state.tenders = Array.isArray(tenders) ? tenders : [];
+    state.meta = meta;
+
+    if (trigger === 'initial') {
+      setupFilters();
+      setupModal();
+    }
+
+    refreshView();
+    const updated = state.meta?.timestamp ? formatDisplayDate(state.meta.timestamp) : 'sin timestamp';
+    setSyncStatus(`Última sincronización: ${updated}`);
   } catch (error) {
-    console.warn(`No se pudo cargar ${url}:`, error);
-    return fallback;
+    console.warn('No se pudieron sincronizar los datos:', error);
+    setSyncStatus('No se pudo sincronizar. Reintenta en unos minutos.');
+  } finally {
+    setSyncInProgress(false);
   }
 }
 
+function setupSyncControls() {
+  elements.syncNowButton.addEventListener('click', () => {
+    syncData('manual');
+  });
+}
+
+function startAutoRefresh() {
+  if (state.syncTimerId) {
+    clearInterval(state.syncTimerId);
+  }
+
+  state.syncTimerId = window.setInterval(() => {
+    syncData('auto');
+  }, AUTO_REFRESH_MS);
+}
+
 async function init() {
-  state.tenders = await fetchJson('./data/tenders.json', []);
-  state.meta = await fetchJson('./data/meta.json', null);
-  setupFilters();
-  setupModal();
-  refreshView();
+  setupSyncControls();
+  await syncData('initial');
+  startAutoRefresh();
 }
 
 init();
