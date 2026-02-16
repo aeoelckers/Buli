@@ -1,0 +1,65 @@
+name: Frequent tenders sync
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Fecha inicio (YYYY-MM-DD, zona Chile)"
+        required: false
+      end_date:
+        description: "Fecha fin (YYYY-MM-DD, zona Chile)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      CHILECOMPRA_TICKET: ${{ secrets.CHILECOMPRA_TICKET || vars.CHILECOMPRA_TICKET }}
+      CHILECOMPRA_START_DATE: ${{ github.event.inputs.start_date || vars.CHILECOMPRA_START_DATE }}
+      CHILECOMPRA_END_DATE: ${{ github.event.inputs.end_date || vars.CHILECOMPRA_END_DATE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate configuration
+        id: config
+        run: |
+          if [ -z "${CHILECOMPRA_TICKET}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CHILECOMPRA_TICKET no está configurado. Define el Secret o Variable CHILECOMPRA_TICKET para habilitar la sincronización."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate tenders JSON
+        if: steps.config.outputs.configured == 'true'
+        run: python scripts/update_tenders.py
+
+      - name: Skip sync (missing ticket)
+        if: steps.config.outputs.configured != 'true'
+        run: echo "Sin ticket; se omite sincronización en esta corrida."
+
+      - name: Commit and push generated files (if changed)
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- docs/data/tenders.json docs/data/meta.json; then
+            echo "No changes detected; skipping commit."
+            exit 0
+          fi
+
+          git add docs/data/tenders.json docs/data/meta.json
+          git commit -m "chore(data): update tenders dataset"
+          git push
